@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Термостат</title>
+    <style>
+      h1,
+      p {
+        text-align: center;
+      }
+      hr {
+        max-width: 380px;
+      }
+      form {
+        margin: 1.5em auto;
+        display: grid;
+        grid-template-columns: 1fr 2fr;
+        align-items: center;
+        gap: 0.6em;
+        max-width: 360px;
+      }
+      form > input {
+        min-width: 80px;
+      }
+      input[type="submit"] {
+        grid-column: span 2;
+        height: 2em;
+        border-radius: 0.5em;
+        cursor: pointer;
+        width: 160px;
+        justify-self: center;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Термостат</h1>
+    <p>Температура в помещении: <b>%.1f °C</b><br />(обновлено %lu сек назад)</p>
+    <p>Температура носителя: <b>%.1f °C</b></p>
+    <p>Центральное нагревание: <b style="color: %s">%s</b></p>
+    <p>Горячая вода: <b style="color: %s">%s</b></p>
+    <p>Охлаждение: <b style="color: %s">%s</b></p>
+    <p>Пламя: <b style="color: %s">%s</b></p>
+
+    <hr />
+
+    <form style="grid-template-columns: 4fr 1fr" method="POST">
+      <span>Желаемая температура в помещении:</span>
+      <input type="number" step="0.1" name="desiredTemp" required value="%.1f" />
+
+      <span>Центральное нагревание:</span><input type="checkbox" name="heat" %s />
+
+      <span>Горячая вода:</span><input type="checkbox" name="water" %s />
+
+      <span>Охлаждение:</span><input type="checkbox" name="cooling" %s />
+
+      <span>Ручная настройка температуры носителя:</span><input type="checkbox" name="manual" %s />
+
+      <span>Желаемая температура носителя:</span>
+      <input type="number" step="0.1" name="boilerTemp" required value="%.1f" />
+
+      <input type="submit" value="Сохранить" />
+    </form>
+
+    <hr />
+
+    <form method="POST">
+      <span>Имя WiFi сети:</span><input type="text" name="ssid" required value="%s" />
+
+      <span>Пароль WiFi сети:</span><input type="password" name="pass" required />
+
+      <input type="submit" value="Сохранить" />
+    </form>
+  </body>
+</html>
