@@ -99,7 +99,7 @@ void setup()
   lastWifiTime = millis();
   wifiConnect();
 
-  htmlAnswer = (char*)malloc(4096);
+  htmlAnswer = new char[4096];
 
   server.on("/", handleRoot);
   server.on("/temp", handleTemp);
