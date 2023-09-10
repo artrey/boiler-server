@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
+    <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Термостат</title>
     <style>
@@ -35,7 +36,9 @@
   <body>
     <h1>Термостат</h1>
     <p>Температура в помещении: <b>%.1f °C</b><br />(обновлено %lu сек назад)</p>
+    <p>Установка температуры носителя: <b>%.1f °C</b>, <b style="color: %s">%s</b></p>
     <p>Температура носителя: <b>%.1f °C</b></p>
+    <p>Установка состояния котла: <b style="color: %s">%s</b></p>
     <p>Центральное нагревание: <b style="color: %s">%s</b></p>
     <p>Горячая вода: <b style="color: %s">%s</b></p>
     <p>Охлаждение: <b style="color: %s">%s</b></p>

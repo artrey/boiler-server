@@ -16,6 +16,8 @@ constexpr const char* const disableColor = "red";
 constexpr const char* const disableText = "выкл.";
 constexpr const char* const checkboxChecked = "checked";
 constexpr const char* const checkboxUnchecked = "";
+constexpr const char* const successText = "успешно";
+constexpr const char* const errorText = "ошибка";
 
 EEPROMConfig config(0);
 
@@ -51,18 +53,26 @@ uint8_t wifiReconnectAttempts = 0;
 unsigned long lastWifiTime;
 unsigned long boardTime;
 float externalTemp = 25;
-unsigned long lastExternalTempUpdateTime = -1;
+float priorExternalTemp = 0;
+unsigned long lastExternalTempUpdateTime;
+unsigned long priorExternalTempUpdateTime;
 bool isCentralHeating;
 bool isHotWater;
 bool isCooling;
 bool isFlame;
 float actualBoilerTemp;
+float boilerTemp;
+bool lastSetupTemp;
+OpenThermResponseStatus lastSetupStatus;
+char* htmlAnswer;
+float integralError = 0;
 
 bool wifiConnect();
 void configureOTA();
 void handleRoot();
 void handleTemp();
 float parseFloat(String);
+float pid(float, float, float, float&, float);
 
 void IRAM_ATTR handleInterrupt()
 {
@@ -89,6 +99,8 @@ void setup()
   lastWifiTime = millis();
   wifiConnect();
 
+  htmlAnswer = (char*)malloc(4096);
+
   server.on("/", handleRoot);
   server.on("/temp", handleTemp);
   server.begin();
@@ -112,15 +124,23 @@ void loop()
 
   if (passedTime > 1000)
   {
+#ifdef NEED_SERIAL_PRINT
+    Serial.print("Setup status: centralHeating=");
+    Serial.print(config.data.centralHeating);
+    Serial.print("; hotWater=");
+    Serial.print(config.data.hotWater);
+    Serial.print("; cooling=");
+    Serial.println(config.data.cooling);
+#endif
     unsigned long response = ot.setBoilerStatus(config.data.centralHeating, config.data.hotWater, config.data.cooling);
-    OpenThermResponseStatus responseStatus = ot.getLastResponseStatus();
-    if (responseStatus != OpenThermResponseStatus::SUCCESS)
+    lastSetupStatus = ot.getLastResponseStatus();
+    if (lastSetupStatus != OpenThermResponseStatus::SUCCESS)
     {
 #ifdef NEED_SERIAL_PRINT
       Serial.print("Error: Invalid boiler response = ");
       Serial.print(response, HEX);
       Serial.print(", last response status = ");
-      Serial.println(ot.getLastResponseStatus());
+      Serial.println(lastSetupStatus);
 #endif
     }
     isCentralHeating = ot.isCentralHeatingActive(response);
@@ -128,7 +148,6 @@ void loop()
     isCooling = ot.isCoolingActive(response);
     isFlame = ot.isFlameOn(response);
 
-    float boilerTemp;
     if (config.data.manualBoilerTemp)
     {
       boilerTemp = config.data.desiredBoilerTemp;
@@ -136,10 +155,17 @@ void loop()
     else
     {
       // TODO: calc boiler temp using PID
-      boilerTemp = 60;
+      boilerTemp = pid(config.data.desiredTemp, externalTemp, priorExternalTemp, integralError, (lastExternalTempUpdateTime - priorExternalTempUpdateTime) / 1000.0);
     }
 
-    if (!ot.setBoilerTemperature(boilerTemp))
+
+#ifdef NEED_SERIAL_PRINT
+    Serial.print("Setup boiler temp = ");
+    Serial.print(boilerTemp);
+    Serial.println("°C");
+#endif
+    lastSetupTemp = ot.setBoilerTemperature(boilerTemp);
+    if (!lastSetupTemp)
     {
 #ifdef NEED_SERIAL_PRINT
       Serial.print("Error: Can't setup the boiler temperature, last response status = ");
@@ -326,14 +352,18 @@ void handleRoot()
     return;
   }
 
-  char html[2048];
   unsigned long secs = (millis() - lastExternalTempUpdateTime) / 1000;
   sprintf(
-    html,
+    htmlAnswer,
     INDEX_TEMPLATE,
     externalTemp,
     secs,
+    boilerTemp,
+    lastSetupTemp ? enableColor : disableColor,
+    lastSetupTemp ? successText : errorText,
     actualBoilerTemp,
+    lastSetupStatus ? enableColor : disableColor,
+    lastSetupStatus ? successText : errorText,
     isCentralHeating ? enableColor : disableColor,
     isCentralHeating ? enableText : disableText,
     isHotWater ? enableColor : disableColor,
@@ -350,7 +380,7 @@ void handleRoot()
     config.data.desiredBoilerTemp,
     config.data.ssid
   );
-  server.send(200, "text/html", html);
+  server.send(200, "text/html", htmlAnswer);
 }
 
 void handleTemp()
@@ -362,7 +392,9 @@ void handleTemp()
     return;
   }
 
+  priorExternalTempUpdateTime = lastExternalTempUpdateTime;
   lastExternalTempUpdateTime = millis();
+  priorExternalTemp = externalTemp;
   externalTemp = parseFloat(tempStr);
 
 #ifdef NEED_SERIAL_PRINT
@@ -380,4 +412,39 @@ float parseFloat(String value)
 {
   value.replace(",", ".");
   return value.toFloat();
+}
+
+float pid(float sp, float pv, float pv_last, float& ierr, float dt) {
+  float Kc = 12.0; // K / %Heater
+  float tauI = 50.0; // sec
+  float tauD = 1.0;  // sec
+  // PID coefficients
+  float KP = Kc;
+  float KI = Kc / tauI;
+  float KD = Kc * tauD;
+  // upper and lower bounds on heater level
+  float ophi = 55;
+  float oplo = 20;
+  // calculate the error
+  float error = sp - pv;
+  // calculate the integral error
+  ierr = ierr + KI * error * dt;
+  // calculate the measurement derivative
+  float dpv = (pv - pv_last) / dt;
+  // calculate the PID output
+  float P = KP * error; //proportional contribution
+  float I = ierr; //integral contribution
+  float D = -KD * dpv; //derivative contribution
+  float op = P + I + D;
+  // implement anti-reset windup
+  if ((op < oplo) || (op > ophi)) {
+    I = I - KI * error * dt;
+    // clip output
+    op = max(oplo, min(ophi, op));
+  }
+  ierr = I;
+#ifdef NEED_SERIAL_PRINT
+  Serial.println("PID: sp=" + String(sp) + " pv=" + String(pv) + " dt=" + String(dt) + " op=" + String(op) + " P=" + String(P) + " I=" + String(I) + " D=" + String(D));
+#endif
+  return op;
 }
