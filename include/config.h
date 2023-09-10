@@ -1,3 +1,6 @@
+#ifndef _CONFIG_H_
+#define _CONFIG_H_
+
 #include <Arduino.h>
 #include <EEPROM.h>
 
@@ -42,3 +45,5 @@ public:
     return read();
   }
 };
+
+#endif

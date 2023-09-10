@@ -241,10 +241,12 @@ void configureOTA()
   ArduinoOTA.onStart([]() {
 #ifdef NEED_SERIAL_PRINT
     String type;
-    if (ArduinoOTA.getCommand() == U_FLASH) {
+    if (ArduinoOTA.getCommand() == U_FLASH)
+    {
       type = "sketch";
     }
-    else {  // U_FS
+    else
+    {
       type = "filesystem";
     }
     Serial.println("OTA | Start updating " + type);
@@ -266,19 +268,24 @@ void configureOTA()
   ArduinoOTA.onError([](ota_error_t error) {
 #ifdef NEED_SERIAL_PRINT
     Serial.printf("OTA | Error[%u]: ", error);
-    if (error == OTA_AUTH_ERROR) {
+    if (error == OTA_AUTH_ERROR)
+    {
       Serial.println("Auth Failed");
     }
-    else if (error == OTA_BEGIN_ERROR) {
+    else if (error == OTA_BEGIN_ERROR)
+    {
       Serial.println("Begin Failed");
     }
-    else if (error == OTA_CONNECT_ERROR) {
+    else if (error == OTA_CONNECT_ERROR)
+    {
       Serial.println("Connect Failed");
     }
-    else if (error == OTA_RECEIVE_ERROR) {
+    else if (error == OTA_RECEIVE_ERROR)
+    {
       Serial.println("Receive Failed");
     }
-    else if (error == OTA_END_ERROR) {
+    else if (error == OTA_END_ERROR)
+    {
       Serial.println("End Failed");
     }
 #endif
@@ -414,7 +421,8 @@ float parseFloat(String value)
   return value.toFloat();
 }
 
-float pid(float sp, float pv, float pv_last, float& ierr, float dt) {
+float pid(float sp, float pv, float pv_last, float& ierr, float dt)
+{
   float Kc = 12.0; // K / %Heater
   float tauI = 50.0; // sec
   float tauD = 1.0;  // sec
@@ -437,7 +445,8 @@ float pid(float sp, float pv, float pv_last, float& ierr, float dt) {
   float D = -KD * dpv; //derivative contribution
   float op = P + I + D;
   // implement anti-reset windup
-  if ((op < oplo) || (op > ophi)) {
+  if ((op < oplo) || (op > ophi))
+  {
     I = I - KI * error * dt;
     // clip output
     op = max(oplo, min(ophi, op));
